@@ -30,13 +30,13 @@ namespace ser {
         void update_scroll_behavior(ImagePane* pane, QScrollArea* scroll, const QImage& img);
 
         // Pointers to the panes (the widgets drawing the images)
-        ImagePane* m_source_pane;
-        ImagePane* m_separated_pane;
-        ImagePane* m_reinked_pane;
+        ImagePane* source_pane_;
+        ImagePane* separated_pane_;
+        ImagePane* reinked_pane_;
 
         // Pointers to the scroll areas (the containers inside the tabs)
-        QScrollArea* m_source_scroll;
-        QScrollArea* m_separated_scroll;
-        QScrollArea* m_reinked_scroll;
+        QScrollArea* source_scroll_;
+        QScrollArea* separated_scroll_;
+        QScrollArea* reinked_scroll_;
     };
 }
