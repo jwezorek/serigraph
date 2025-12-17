@@ -13,16 +13,8 @@
 main_window::main_window(QWidget* parent)
     : QMainWindow(parent)
 {
-    // 1. Setup Canvas
-    m_canvas = new serigraph_widget(this);
 
-    // 2. Setup Scroll Area
-    QScrollArea* scroll_area = new QScrollArea;
-    scroll_area->setBackgroundRole(QPalette::Dark);
-    scroll_area->setWidget(m_canvas);
-    scroll_area->setAlignment(Qt::AlignCenter);
-
-    setCentralWidget(scroll_area);
+    setCentralWidget(m_canvas = new serigraph_widget(this));
 
     // 3. UI Setup
     create_actions();
