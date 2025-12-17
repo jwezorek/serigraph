@@ -10,7 +10,7 @@
 #include <QMessageBox>
 #include <QDockWidget> // Required for docking
 
-main_window::main_window(QWidget* parent)
+ser::main_window::main_window(QWidget* parent)
     : QMainWindow(parent)
 {
 
@@ -25,13 +25,13 @@ main_window::main_window(QWidget* parent)
     resize(1200, 800); // Increased size slightly to accommodate docks
 }
 
-main_window::~main_window() {}
+ser::main_window::~main_window() {}
 
-void main_window::create_actions() {
+void ser::main_window::create_actions() {
     // Actions are created directly in create_menus for brevity
 }
 
-void main_window::create_menus() {
+void ser::main_window::create_menus() {
     QMenu* file_menu = menuBar()->addMenu(tr("&File"));
 
     QAction* open_act = new QAction(tr("&Open..."), this);
@@ -58,7 +58,7 @@ void main_window::create_menus() {
         });
 }
 
-void main_window::create_docks() {
+void ser::main_window::create_docks() {
     // --- Source Palette (Input) ---
     QDockWidget* source_dock = new QDockWidget(tr("Source Palette"), this);
     source_dock->setObjectName("Source Dock");
@@ -105,7 +105,7 @@ void main_window::create_docks() {
         });
 }
 
-void main_window::open_file() {
+void ser::main_window::open_file() {
     QString file_name = QFileDialog::getOpenFileName(this,
         tr("Open Image"), "", tr("Image Files (*.png *.jpg *.bmp)"));
 

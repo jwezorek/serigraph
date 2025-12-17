@@ -57,7 +57,7 @@ private:
 
 // --- Main Widget Implementation ---
 
-serigraph_widget::serigraph_widget(QWidget* parent)
+ser::serigraph_widget::serigraph_widget(QWidget* parent)
     : QTabWidget(parent)
 {
     // Place tabs at the bottom
@@ -73,7 +73,7 @@ serigraph_widget::serigraph_widget(QWidget* parent)
         this, &serigraph_widget::source_pixel_clicked);
 }
 
-ImagePane* serigraph_widget::create_tab(const QString& title, QScrollArea*& out_scroll_area) {
+ImagePane* ser::serigraph_widget::create_tab(const QString& title, QScrollArea*& out_scroll_area) {
     // 1. Create the Scroll Area
     out_scroll_area = new QScrollArea(this);
     out_scroll_area->setBackgroundRole(QPalette::Dark);
@@ -94,7 +94,7 @@ ImagePane* serigraph_widget::create_tab(const QString& title, QScrollArea*& out_
     return pane;
 }
 
-void serigraph_widget::update_scroll_behavior(ImagePane* pane, QScrollArea* scroll, const QImage& img) {
+void ser::serigraph_widget::update_scroll_behavior(ImagePane* pane, QScrollArea* scroll, const QImage& img) {
     pane->set_image(img);
 
     if (img.isNull()) {
@@ -109,15 +109,15 @@ void serigraph_widget::update_scroll_behavior(ImagePane* pane, QScrollArea* scro
     pane->update();
 }
 
-void serigraph_widget::set_source_image(const QImage& image) {
+void ser::serigraph_widget::set_source_image(const QImage& image) {
     update_scroll_behavior(m_source_pane, m_source_scroll, image);
     setCurrentWidget(m_source_scroll); // Auto-focus this tab
 }
 
-void serigraph_widget::set_separated_image(const QImage& image) {
+void ser::serigraph_widget::set_separated_image(const QImage& image) {
     update_scroll_behavior(m_separated_pane, m_separated_scroll, image);
 }
 
-void serigraph_widget::set_reinked_image(const QImage& image) {
+void ser::serigraph_widget::set_reinked_image(const QImage& image) {
     update_scroll_behavior(m_reinked_pane, m_reinked_scroll, image);
 }
