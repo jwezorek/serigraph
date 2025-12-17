@@ -18,8 +18,6 @@ namespace ser{
         void open_file();
 
     private:
-        void create_actions();
-        void create_menus();
         void create_docks(); // New helper to setup the side panels
 
         serigraph_widget* m_canvas;

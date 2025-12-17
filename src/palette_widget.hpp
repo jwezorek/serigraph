@@ -20,21 +20,19 @@ namespace ser {
 
         void set_colors(const std::vector<QColor>& colors);
         std::vector<QColor> get_colors() const;
-
-        // New member function to hook up to your signal
-        void add_color(const rgb_color& color);
+        void add_color(const QColor& color);
+        void remove_swatch_at(int index);
 
     signals:
         void palette_changed();
+        void color_added_requested(QColor);
+        void color_delete_requested(int);
 
     private:
         void clear_layout();
-
-        // Helper to handle creation, insertion, and signal connections
-        // for individual swatches (used by set_colors, add_color, and duplicate)
         void insert_swatch(int index, const QColor& color);
+        void contextMenuEvent(QContextMenuEvent* event);
 
-        // Storing QFrame* allows 'swatch' to be defined entirely in the .cpp
         std::vector<QFrame*> swatches_;
     };
 
