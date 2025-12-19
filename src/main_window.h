@@ -19,11 +19,13 @@ namespace ser{
 
     private:
         void create_docks(); // New helper to setup the side panels
+        void create_menus();
+        void add_color_to_palettes(const QColor& color);
 
-        serigraph_widget* m_canvas;
+        serigraph_widget* canvas_;
 
         // New members for the palettes
-        palette_widget* m_source_palette;
-        palette_widget* m_target_palette;
+        palette_widget* source_palette_;
+        palette_widget* target_palette_;
     };
 }

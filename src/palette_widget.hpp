@@ -32,7 +32,6 @@ namespace ser {
         void clear_layout();
         void insert_swatch(int index, const QColor& color);
         void contextMenuEvent(QContextMenuEvent* event);
-
         std::vector<QFrame*> swatches_;
     };
 
