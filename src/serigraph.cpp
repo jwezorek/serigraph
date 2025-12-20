@@ -6,18 +6,6 @@ namespace rv = std::ranges::views;
 
 namespace {
 
-    ser::rgb_color to_rgb(const QColor& color) {
-        // Ensure we are working with RGB values (handles conversion if QColor was CMYK/HSL)
-        QColor rgb = color.toRgb();
-
-        // Return the std::array<uint8_t, 3> as defined in your color_lut
-        return {
-            static_cast<uint8_t>(rgb.red()),
-            static_cast<uint8_t>(rgb.green()),
-            static_cast<uint8_t>(rgb.blue())
-        };
-    }
-
     ser::ink_separation separate_image(const QImage& img, const ser::color_lut& lut) {
         int width = img.width();
         int height = img.height();
@@ -32,8 +20,7 @@ namespace {
 
         for (int y = 0; y < height; ++y) {
             for (int x = 0; x < width; ++x) {
-                auto rgb = to_rgb(img.pixel(x, y));
-                auto k = lut.look_up(rgb);
+                auto k = lut.look_up(img.pixel(x, y));
                 for (size_t i = 0; i < num_inks; ++i) {
                     layers[i](x, y) = k[i];
                 }
@@ -45,7 +32,7 @@ namespace {
 }
 
 std::tuple<ser::ink_separation, ser::color_lut> ser::separate_image(const QImage& img, const std::vector<QColor>& palette) {
-    auto lut = color_lut( palette | rv::transform(::to_rgb) | r::to<std::vector>());
+    auto lut = color_lut( palette );
     auto sep = ::separate_image(img, lut);
     return { sep, lut };
 }
@@ -65,8 +52,8 @@ QImage ser::ink_layers_to_image(const ink_separation& layers, const std::vector<
                 k.push_back(layer(x, y));
             }
 
-            rgb_color final_rgb = to_rgb(k, palette);
-            result.setPixel(x, y, qRgb(final_rgb[0], final_rgb[1], final_rgb[2]));
+            auto color = color_from_ink_levels(k, palette);
+            result.setPixelColor(x, y, color);
         }
     }
 
@@ -74,6 +61,6 @@ QImage ser::ink_layers_to_image(const ink_separation& layers, const std::vector<
 }
 
 QImage ser::ink_layers_to_image(const ink_separation& layers, const std::vector<QColor>& palette) {
-    auto latent_space_palette = to_latent_space(palette | rv::transform(::to_rgb) | r::to<std::vector>());
+    auto latent_space_palette = to_latent_space(palette);
     return ink_layers_to_image(layers, latent_space_palette);
 }

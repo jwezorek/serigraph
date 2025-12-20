@@ -42,7 +42,7 @@ namespace {
 // ser::color_lut Implementation
 // -------------------------------------------------------------------------
 
-ser::color_lut::color_lut(const std::vector<ser::rgb_color>& palette) {
+ser::color_lut::color_lut(const std::vector<QColor>& palette) {
     // Initialize the LUT structure: vector of vector of vector
     impl_.resize(LUT_GRID_SIZE);
     for (int i = 0; i < LUT_GRID_SIZE; ++i) {
@@ -56,7 +56,7 @@ ser::color_lut::color_lut(const std::vector<ser::rgb_color>& palette) {
     reset_palette(palette);
 }
 
-void ser::color_lut::reset_palette(const std::vector<ser::rgb_color>& palette) {
+void ser::color_lut::reset_palette(const std::vector<QColor>& palette) {
     // 1. Convert Source Palette to Latent Space (Projection)
     palette_ = ser::to_latent_space(palette);
 
@@ -206,13 +206,13 @@ ser::coefficients ser::color_lut::solve_for_color_coefficients(
     return result;
 }
 
-ser::coefficients ser::color_lut::look_up(const ser::rgb_color& color) const {
+ser::coefficients ser::color_lut::look_up(const QColor& color) const {
     // Sample the coefficient vector using Trilinear Interpolation
 
     // Normalize 0-255 to Grid Coordinates 0-32
-    float r_pos = color[0] * (LUT_GRID_SIZE - 1) / 255.0f;
-    float g_pos = color[1] * (LUT_GRID_SIZE - 1) / 255.0f;
-    float b_pos = color[2] * (LUT_GRID_SIZE - 1) / 255.0f;
+    float r_pos = color.red() * (LUT_GRID_SIZE - 1) / 255.0f;
+    float g_pos = color.green() * (LUT_GRID_SIZE - 1) / 255.0f;
+    float b_pos = color.blue() * (LUT_GRID_SIZE - 1) / 255.0f;
 
     // Integer parts
     int r0 = clamp(static_cast<int>(r_pos), 0, LUT_GRID_SIZE - 2);
@@ -267,14 +267,14 @@ const std::vector<ser::latent_space_color>& ser::color_lut::palette() const {
 // ser:: Free Functions
 // -------------------------------------------------------------------------
 
-std::vector<ser::latent_space_color> ser::to_latent_space(const std::vector<ser::rgb_color>& colors) {
+std::vector<ser::latent_space_color> ser::to_latent_space(const std::vector<QColor>& colors) {
     std::vector<ser::latent_space_color> result;
     result.reserve(colors.size());
 
     for (const auto& rgb : colors) {
         mixbox_latent latent_arr;
         // Convert RGB -> Pigment Latent Space
-        mixbox_rgb_to_latent(rgb[0], rgb[1], rgb[2], latent_arr);
+        mixbox_rgb_to_latent(rgb.red(), rgb.green(), rgb.blue(), latent_arr);
 
         ser::latent_space_color lsc;
         std::copy(std::begin(latent_arr), std::end(latent_arr), lsc.begin());
@@ -283,7 +283,7 @@ std::vector<ser::latent_space_color> ser::to_latent_space(const std::vector<ser:
     return result;
 }
 
-ser::rgb_color ser::to_rgb(const ser::coefficients& coeff, const std::vector<ser::latent_space_color>& palette) {
+QColor ser::color_from_ink_levels(const ser::coefficients& coeff, const std::vector<ser::latent_space_color>& palette) {
     if (coeff.empty() || palette.empty() || coeff.size() != palette.size()) {
         return { 0, 0, 0 };
     }

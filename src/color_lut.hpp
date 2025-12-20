@@ -2,12 +2,12 @@
 
 #include <vector>
 #include <array>
+#include <QColor>
 
 namespace ser {
 
     using coefficients = std::vector<double>;
     using latent_space_color = std::array<float, 7>;
-    using rgb_color = std::array<uint8_t, 3>;
 
     class color_lut {
 
@@ -24,21 +24,19 @@ namespace ser {
         color_lut() {}
 
         // just call reset reset_palette below...
-        color_lut(const std::vector<rgb_color>& palette);
+        color_lut(const std::vector<QColor>& palette);
 
         // convert the palette to latent space, store in palette_ and
         // create the 33x33x33 lookup table called impl_
-        void reset_palette(const std::vector<rgb_color>& palette);
+        void reset_palette(const std::vector<QColor>& palette);
 
         // interpolate between values in impl_...
-        coefficients look_up(const rgb_color& color) const;
+        coefficients look_up(const QColor& color) const;
 
         const std::vector<latent_space_color>& palette() const;
-
-        void test() const;
     };
 
-    std::vector<latent_space_color> to_latent_space(const std::vector<rgb_color>& colors);
-    rgb_color to_rgb(const coefficients& coeff, const std::vector<latent_space_color>& palette);
+    std::vector<latent_space_color> to_latent_space(const std::vector<QColor>& colors);
+    QColor color_from_ink_levels(const coefficients& coeff, const std::vector<latent_space_color>& palette);
 
 }
