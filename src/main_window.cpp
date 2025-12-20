@@ -139,13 +139,11 @@ void ser::main_window::open_file() {
     }
 }
 
-
 void ser::main_window::separate_layers() {
 
     auto src = canvas_->src_image();
     auto palette = source_palette_->get_colors();
     auto [layers, lut] = separate_image(src, palette);
-
     auto separated_image = ink_layers_to_image(layers, lut.palette());
     canvas_->set_separated_image(separated_image);
 

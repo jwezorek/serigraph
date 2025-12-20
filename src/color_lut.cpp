@@ -10,7 +10,8 @@
 #include <iostream>
 #include <numeric>
 #include <vector>
-
+#include <qdebug.h>
+#include <qcolor.h>
 // -------------------------------------------------------------------------
 // Internal Helpers & Constants (Anonymous Namespace)
 // -------------------------------------------------------------------------
@@ -77,7 +78,7 @@ void ser::color_lut::reset_palette(const std::vector<ser::rgb_color>& palette) {
                 std::copy(std::begin(latent_arr), std::end(latent_arr), target_color.begin());
 
                 // 3. Solve QP for this node
-                ser::coefficients coeffs = solve_for_color_coefficients(target_color);
+                ser::coefficients coeffs = solve_for_color_coefficients(palette_, target_color);
 
                 // 4. Store in LUT
                 impl_[r][g][b] = coeffs;
@@ -86,26 +87,26 @@ void ser::color_lut::reset_palette(const std::vector<ser::rgb_color>& palette) {
     }
 }
 
-ser::coefficients ser::color_lut::solve_for_color_coefficients(const ser::latent_space_color& target) const {
+ser::coefficients ser::color_lut::solve_for_color_coefficients(
+    const std::vector<latent_space_color>& palette,
+    const ser::latent_space_color& target) {
+
     // Problem: Constrained Least Squares (Quadratic Programming)
-    // Minimize || sum(k_i * V_i) - T ||^2 + lambda * sum(k_i^2)
-    // Subject to: sum(k_i) = 1.0, 0 <= k_i <= 1.0
+    // Objective: Minimize || sum(k_i * V_i) - T ||^2 + lambda * sum(k_i^2)
+    // Constraints: sum(k_i) = 1.0, 0 <= k_i <= 1.0
 
-    // QP Standard Form: minimize 0.5 * k'Qk + c'k
-    // Expansion of Least Squares gives:
-    // Q = 2 * (V'V + lambda*I)
-    // c = -2 * V'T
-
-    int n_colors_int = static_cast<int>(palette_.size());
+    int n_colors_int = static_cast<int>(palette.size());
     if (n_colors_int == 0) return {};
 
     // --- Step A: Construct Vector c (Linear Term) ---
+    // Expansion of Least Squares ||Vk - T||^2 gives 0.5 * k'(2V'V)k + (-2V'T)'k
+    // Linear term c = -2 * V'T
     std::vector<double> c_vec(n_colors_int, 0.0);
 
     for (int i = 0; i < n_colors_int; ++i) {
         double dot_vt = 0.0;
         for (int d = 0; d < LATENT_DIM; ++d) {
-            dot_vt += palette_[i][d] * target[d];
+            dot_vt += palette[i][d] * target[d];
         }
         c_vec[i] = -2.0 * dot_vt;
     }
@@ -127,19 +128,19 @@ ser::coefficients ser::color_lut::solve_for_color_coefficients(const ser::latent
     model.addRow(n_colors_int, col_indices_row.data(), row_elements.data(), 1.0, 1.0);
 
     // --- Step C: Construct Sparse Matrix Q (Quadratic Term) ---
-    // We must build Q in Compressed Sparse Column (CSC) format manually.
     // Q = 2 * (V'V + lambda*I)
+    // IMPORTANT: Clp's Barrier solver requires a LOWER TRIANGULAR matrix.
+    // We must ensure the Row Index (i) >= Column Index (j).
 
-    // IMPORTANT: Types must strictly match CoinPackedMatrix.hpp definitions
-    std::vector<CoinBigIndex> col_starts; // Must be CoinBigIndex*
-    std::vector<int> row_indices;         // Must be int*
-    std::vector<double> elements;         // Must be double*
-    std::vector<int> col_lengths;         // Must be int*
+    std::vector<CoinBigIndex> col_starts;
+    std::vector<int> row_indices;
+    std::vector<double> elements;
+    std::vector<int> col_lengths;
 
     col_starts.reserve(n_colors_int + 1);
     col_lengths.reserve(n_colors_int);
-    row_indices.reserve(n_colors_int * n_colors_int);
-    elements.reserve(n_colors_int * n_colors_int);
+    row_indices.reserve((n_colors_int * (n_colors_int + 1)) / 2);
+    elements.reserve((n_colors_int * (n_colors_int + 1)) / 2);
 
     CoinBigIndex current_idx = 0;
 
@@ -147,22 +148,21 @@ ser::coefficients ser::color_lut::solve_for_color_coefficients(const ser::latent
         col_starts.push_back(current_idx);
         int len = 0;
 
-        for (int i = 0; i < n_colors_int; ++i) { // Rows
-            // Calculate Q[i][j]
+        // Iterate only through the Lower Triangle (i >= j)
+        for (int i = j; i < n_colors_int; ++i) {
             double dot = 0.0;
             for (int d = 0; d < LATENT_DIM; ++d) {
-                dot += palette_[i][d] * palette_[j][d];
+                dot += palette[i][d] * palette[j][d];
             }
 
-            // Add regularization to diagonal
+            // Add L2 regularization to the diagonal (where i == j)
             if (i == j) {
                 dot += LAMBDA;
             }
 
-            // Scale by 2.0 for QP form
+            // Scale by 2.0 for standard QP form (0.5 * k'Qk)
             double val = 2.0 * dot;
 
-            // Add to sparse matrix if non-zero
             if (std::abs(val) > 1e-12) {
                 row_indices.push_back(i);
                 elements.push_back(val);
@@ -172,32 +172,35 @@ ser::coefficients ser::color_lut::solve_for_color_coefficients(const ser::latent
         }
         col_lengths.push_back(len);
     }
-    col_starts.push_back(current_idx); // Final start index
+    col_starts.push_back(current_idx);
 
-    // Create CoinPackedMatrix using the 8-argument constructor found in header
-    // Signature: (bool colordered, int minor, int major, CoinBigIndex numels, 
-    //             double *elem, int *ind, CoinBigIndex *start, int *len)
     CoinPackedMatrix coin_Q(true,
         n_colors_int,
         n_colors_int,
-        current_idx,         // numels
+        current_idx,
         elements.data(),
         row_indices.data(),
         col_starts.data(),
         col_lengths.data());
 
-    // Load into solver
     model.loadQuadraticObjective(coin_Q);
 
     // --- Step D: Solve ---
-    model.primal();
+    // The Barrier method is required for Quadratic Programming.
+    model.barrier(false);
 
     // --- Step E: Extract Results ---
     double* solution = model.primalColumnSolution();
 
     ser::coefficients result(n_colors_int);
-    for (int i = 0; i < n_colors_int; ++i) {
-        result[i] = clamp(solution[i], 0.0, 1.0);
+    if (solution) {
+        for (int i = 0; i < n_colors_int; ++i) {
+            result[i] = clamp(solution[i], 0.0, 1.0);
+        }
+    }
+    else {
+        // Return zeros if solver fails to provide a solution
+        result.assign(n_colors_int, 0.0);
     }
 
     return result;

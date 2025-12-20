@@ -15,7 +15,9 @@ namespace ser {
         std::vector<latent_space_color> palette_;
 
         // use CBC to solve the QP problem separating 'color' into percentages of palette colors...
-        coefficients solve_for_color_coefficients(const latent_space_color& color) const;
+        static coefficients solve_for_color_coefficients(
+            const std::vector<latent_space_color>& palette, const latent_space_color& color
+        );
 
     public:
 
@@ -30,6 +32,8 @@ namespace ser {
         coefficients look_up(const rgb_color& color) const;
 
         const std::vector<latent_space_color>& palette() const;
+
+        void test() const;
     };
 
     std::vector<latent_space_color> to_latent_space(const std::vector<rgb_color>& colors);
