@@ -21,6 +21,7 @@ namespace ser{
         void create_docks(); // New helper to setup the side panels
         void create_menus();
         void add_color_to_palettes(const QColor& color);
+        void separate_layers();
 
         serigraph_widget* canvas_;
 

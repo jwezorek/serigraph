@@ -8,6 +8,8 @@
 #include <QScrollArea>
 #include <QMessageBox>
 #include <QDockWidget> 
+#include <QVBoxLayout> 
+#include <QPushButton> 
 
 ser::main_window::main_window(QWidget* parent)
     : QMainWindow(parent)
@@ -56,20 +58,47 @@ void  ser::main_window::add_color_to_palettes(const QColor& color) {
 }
 
 void ser::main_window::create_docks() {
-
+    // --- Source Palette Setup ---
     QDockWidget* source_dock = new QDockWidget(tr("Source Palette"), this);
-    source_palette_ = new ser::palette_widget(source_dock);
-    source_dock->setWidget(source_palette_);
+    QWidget* source_container = new QWidget(source_dock);
+    QVBoxLayout* source_layout = new QVBoxLayout(source_container);
+
+    source_palette_ = new ser::palette_widget(source_container);
+    QPushButton* separate_button = new QPushButton(tr("Separate"), source_container);
+
+    source_layout->addWidget(source_palette_);
+    source_layout->addWidget(separate_button);
+
+    source_dock->setWidget(source_container);
     addDockWidget(Qt::LeftDockWidgetArea, source_dock);
 
+    // --- Target Palette Setup ---
     QDockWidget* target_dock = new QDockWidget(tr("Target Palette"), this);
-    target_palette_ = new ser::palette_widget(target_dock);
-    target_dock->setWidget(target_palette_);
+    QWidget* target_container = new QWidget(target_dock);
+    QVBoxLayout* target_layout = new QVBoxLayout(target_container);
+
+    target_palette_ = new ser::palette_widget(target_container);
+    QPushButton* reink_button = new QPushButton(tr("Re-ink"), target_container);
+
+    target_layout->addWidget(target_palette_);
+    target_layout->addWidget(reink_button);
+
+    target_dock->setWidget(target_container);
     addDockWidget(Qt::RightDockWidgetArea, target_dock);
 
+    // --- Logic & Connections ---
     source_palette_->set_colors({ Qt::white });
     target_palette_->set_colors({ Qt::white });
 
+    // Separate button logic
+    connect(separate_button, &QPushButton::clicked, this, &ser::main_window::separate_layers);
+
+    // Re-ink button logic
+    connect(reink_button, &QPushButton::clicked, this, [this]() {
+        // TODO: Implement re-inking logic
+        });
+
+    // Existing connections
     connect(source_palette_, &ser::palette_widget::color_added_requested, this, &ser::main_window::add_color_to_palettes);
 
     connect(source_palette_, &ser::palette_widget::color_delete_requested, this, [this](int index) {
@@ -103,4 +132,10 @@ void ser::main_window::open_file() {
 
         canvas_->set_source_image(image.convertToFormat(QImage::Format_RGB32));
     }
+}
+
+
+void ser::main_window::separate_layers() {
+
+
 }
