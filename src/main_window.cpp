@@ -137,5 +137,6 @@ void ser::main_window::open_file() {
 
 void ser::main_window::separate_layers() {
 
+    
 
 }

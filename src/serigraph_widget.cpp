@@ -99,3 +99,7 @@ void ser::serigraph_widget::set_separated_image(const QImage& image) {
 void ser::serigraph_widget::set_reinked_image(const QImage& image) {
     update_scroll_behavior(reinked_pane_, reinked_scroll_, image);
 }
+
+QImage ser::serigraph_widget::src_image() const {
+    return source_pane_->image();
+}

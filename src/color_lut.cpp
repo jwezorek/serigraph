@@ -256,6 +256,10 @@ ser::coefficients ser::color_lut::look_up(const ser::rgb_color& color) const {
     return result;
 }
 
+const std::vector<ser::latent_space_color>& ser::color_lut::palette() const {
+    return palette_;
+}
+
 // -------------------------------------------------------------------------
 // ser:: Free Functions
 // -------------------------------------------------------------------------

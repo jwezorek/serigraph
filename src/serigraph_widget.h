@@ -19,6 +19,8 @@ namespace ser {
         void set_separated_image(const QImage& image);
         void set_reinked_image(const QImage& image);
 
+        QImage src_image() const;
+
     signals:
         void source_pixel_clicked(QColor color);
 

@@ -14,3 +14,11 @@ double ser::ink_layer::operator()(int x, int y) const {
 double& ser::ink_layer::operator()(int x, int y) {
     return impl_[index(x, y)];
 }
+
+int ser::ink_layer::width() const {
+    return wd_;
+}
+
+int ser::ink_layer::height() const {
+    return hgt_;
+}

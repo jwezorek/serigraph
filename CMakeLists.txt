@@ -35,6 +35,7 @@ add_executable(serigraph
     src/third-party/mixbox.cpp
     src/palette_widget.cpp
     src/ink_layer.cpp
+    src/serigraph.cpp
 )
 
 target_link_libraries(

@@ -28,6 +28,8 @@ namespace ser {
 
         // interpolate between values in impl_...
         coefficients look_up(const rgb_color& color) const;
+
+        const std::vector<latent_space_color>& palette() const;
     };
 
     std::vector<latent_space_color> to_latent_space(const std::vector<rgb_color>& colors);

@@ -15,7 +15,8 @@ namespace ser {
         ink_layer(int wd, int hgt);
         double operator()(int x, int y) const;
         double& operator()(int x, int y);
-
+        int width() const;
+        int height() const;
     };
 
     using ink_separation = std::vector<ink_layer>;
