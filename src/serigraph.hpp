@@ -2,10 +2,11 @@
 #include "ink_layer.hpp"
 #include <QImage>
 #include <QColor>
+#include <tuple>
 
 namespace ser {
 
-    ink_separation separate_image(const QImage& img, const color_lut& lut);
+    std::tuple<ink_separation, color_lut> separate_image(const QImage& img, const std::vector<QColor>& palette);
     QImage ink_layers_to_image(const ink_separation& layers, const std::vector<latent_space_color>& palette);
 
 }

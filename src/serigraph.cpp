@@ -1,40 +1,53 @@
 #include "serigraph.hpp"
+#include <ranges>
 
+namespace r = std::ranges;
+namespace rv = std::ranges::views;
 
-ser::ink_separation ser::separate_image(const QImage& img, const color_lut& lut) {
-    int width = img.width();
-    int height = img.height();
+namespace {
 
-    // Determine the number of ink layers based on the palette size in the LUT
-    // Each layer represents the coefficient k_i for a specific palette color[cite: 9, 36].
-    size_t num_inks = lut.palette().size();
-    ink_separation layers;
-    for (size_t i = 0; i < num_inks; ++i) {
-        layers.emplace_back(width, height);
+    ser::rgb_color to_rgb(const QColor& color) {
+        // Ensure we are working with RGB values (handles conversion if QColor was CMYK/HSL)
+        QColor rgb = color.toRgb();
+
+        // Return the std::array<uint8_t, 3> as defined in your color_lut
+        return {
+            static_cast<uint8_t>(rgb.red()),
+            static_cast<uint8_t>(rgb.green()),
+            static_cast<uint8_t>(rgb.blue())
+        };
     }
 
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            // 1. Extract the source RGB pixel
-            QRgb pixel = img.pixel(x, y);
-            rgb_color rgb = {
-                static_cast<uint8_t>(qRed(pixel)),
-                static_cast<uint8_t>(qGreen(pixel)),
-                static_cast<uint8_t>(qBlue(pixel))
-            };
+    ser::ink_separation separate_image(const QImage& img, const ser::color_lut& lut) {
+        int width = img.width();
+        int height = img.height();
 
-            // 2. Perform trilinear interpolation in the 3D LUT to find 
-            // the coefficient vector k[cite: 41].
-            coefficients k = lut.look_up(rgb);
+        // Determine the number of ink layers based on the palette size in the LUT
+        // Each layer represents the coefficient k_i for a specific palette color[cite: 9, 36].
+        size_t num_inks = lut.palette().size();
+        ser::ink_separation layers;
+        for (size_t i = 0; i < num_inks; ++i) {
+            layers.emplace_back(width, height);
+        }
 
-            // 3. Store each coefficient in its respective ink layer
-            for (size_t i = 0; i < num_inks; ++i) {
-                layers[i](x, y) = k[i];
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                auto rgb = to_rgb(img.pixel(x, y));
+                auto k = lut.look_up(rgb);
+                for (size_t i = 0; i < num_inks; ++i) {
+                    layers[i](x, y) = k[i];
+                }
             }
         }
-    }
 
-    return layers;
+        return layers;
+    }
+}
+
+std::tuple<ser::ink_separation, ser::color_lut> ser::separate_image(const QImage& img, const std::vector<QColor>& palette) {
+    auto lut = color_lut( palette | rv::transform(::to_rgb) | r::to<std::vector>());
+    auto sep = ::separate_image(img, lut);
+    return { sep, lut };
 }
 
 QImage ser::ink_layers_to_image(const ink_separation& layers, const std::vector<latent_space_color>& palette) {
