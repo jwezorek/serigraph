@@ -11,6 +11,7 @@
 #include <QDockWidget> 
 #include <QVBoxLayout> 
 #include <QPushButton> 
+#include <tuple>
 
 namespace {
 
@@ -95,28 +96,13 @@ void ser::main_window::create_docks() {
     source_palette_->set_colors({ Qt::white });
     target_palette_->set_colors({ Qt::white });
 
-    // Separate button logic
     connect(separate_button, &QPushButton::clicked, this, &ser::main_window::separate_layers);
-
-    // Re-ink button logic
-    connect(reink_button, &QPushButton::clicked, this, [this]() {
-        // TODO: Implement re-inking logic
-        });
-
-    // Existing connections
+    connect(reink_button, &QPushButton::clicked, this, &ser::main_window::reink);
     connect(source_palette_, &ser::palette_widget::color_added_requested, this, &ser::main_window::add_color_to_palettes);
 
     connect(source_palette_, &ser::palette_widget::color_delete_requested, this, [this](int index) {
         source_palette_->remove_swatch_at(index);
         target_palette_->remove_swatch_at(index);
-        });
-
-    connect(source_palette_, &ser::palette_widget::palette_changed, this, [this]() {
-        // m_canvas->update_source_palette(m_source_palette->get_colors());
-        });
-
-    connect(target_palette_, &ser::palette_widget::palette_changed, this, [this]() {
-        // m_canvas->update_target_palette(m_target_palette->get_colors());
         });
 
     connect(canvas_, &ser::serigraph_widget::source_pixel_clicked,
@@ -143,8 +129,16 @@ void ser::main_window::separate_layers() {
 
     auto src = canvas_->src_image();
     auto palette = source_palette_->get_colors();
-    auto [layers, lut] = separate_image(src, palette);
-    auto separated_image = ink_layers_to_image(layers, lut.palette());
+    std::tie(layers_, lut_) = separate_image(src, palette);
+    auto separated_image = ink_layers_to_image(layers_, lut_.palette());
     canvas_->set_separated_image(separated_image);
+
+}
+
+void ser::main_window::reink() {
+
+    auto palette = target_palette_->get_colors();
+    auto reinked_image = ink_layers_to_image(layers_, palette);
+    canvas_->set_reinked_image(reinked_image);
 
 }

@@ -1,3 +1,5 @@
+#pragma once
+
 #include <QWidget>
 #include <vector>
 #include <array>

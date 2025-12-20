@@ -1,6 +1,8 @@
 #pragma once
 
 #include <QMainWindow>
+#include "color_lut.hpp"
+#include "ink_layer.hpp"
 
 namespace ser{
 
@@ -22,8 +24,11 @@ namespace ser{
         void create_menus();
         void add_color_to_palettes(const QColor& color);
         void separate_layers();
+        void reink();
 
         serigraph_widget* canvas_;
+        ink_separation layers_;
+        color_lut lut_;
 
         // New members for the palettes
         palette_widget* source_palette_;

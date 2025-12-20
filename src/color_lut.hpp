@@ -21,6 +21,8 @@ namespace ser {
 
     public:
 
+        color_lut() {}
+
         // just call reset reset_palette below...
         color_lut(const std::vector<rgb_color>& palette);
 

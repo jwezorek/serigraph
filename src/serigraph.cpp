@@ -72,3 +72,8 @@ QImage ser::ink_layers_to_image(const ink_separation& layers, const std::vector<
 
     return result;
 }
+
+QImage ser::ink_layers_to_image(const ink_separation& layers, const std::vector<QColor>& palette) {
+    auto latent_space_palette = to_latent_space(palette | rv::transform(::to_rgb) | r::to<std::vector>());
+    return ink_layers_to_image(layers, latent_space_palette);
+}
