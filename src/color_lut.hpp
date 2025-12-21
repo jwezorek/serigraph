@@ -4,6 +4,8 @@
 #include <array>
 #include <QColor>
 
+class CoinPackedMatrix;
+
 namespace ser {
 
     using coefficients = std::vector<double>;
@@ -14,9 +16,10 @@ namespace ser {
         std::vector<std::vector<std::vector<coefficients>>> impl_;
         std::vector<latent_space_color> palette_;
 
-        static coefficients solve_for_color_coefficients(
-            const std::vector<latent_space_color>& palette, const latent_space_color& color
-        );
+        static coefficients solve_with_precomputed_q(
+            const std::vector<latent_space_color>& palette,
+            const ser::latent_space_color& target,
+            const CoinPackedMatrix& Q);
 
     public:
 

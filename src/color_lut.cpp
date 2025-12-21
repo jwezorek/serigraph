@@ -12,6 +12,8 @@
 #include <vector>
 #include <qdebug.h>
 #include <qcolor.h>
+#include <omp.h>
+
 // -------------------------------------------------------------------------
 // Internal Helpers & Constants (Anonymous Namespace)
 // -------------------------------------------------------------------------
@@ -57,112 +59,31 @@ ser::color_lut::color_lut(const std::vector<QColor>& palette) {
 }
 
 void ser::color_lut::reset_palette(const std::vector<QColor>& palette) {
-    // 1. Convert Source Palette to Latent Space (Projection)
+    // 1. Convert Source Palette to Latent Space
     palette_ = ser::to_latent_space(palette);
+    int n_colors = static_cast<int>(palette_.size());
+    if (n_colors == 0) return;
 
-    // 2. Iterate through the lattice (Quantization)
-    for (int r = 0; r < LUT_GRID_SIZE; ++r) {
-        for (int g = 0; g < LUT_GRID_SIZE; ++g) {
-            for (int b = 0; b < LUT_GRID_SIZE; ++b) {
-
-                // Map grid index 0..32 to RGB 0..255
-                uint8_t ur = static_cast<uint8_t>((r * 255) / (LUT_GRID_SIZE - 1));
-                uint8_t ug = static_cast<uint8_t>((g * 255) / (LUT_GRID_SIZE - 1));
-                uint8_t ub = static_cast<uint8_t>((b * 255) / (LUT_GRID_SIZE - 1));
-
-                // Convert Lattice Point to Pigment Space (Mixbox)
-                mixbox_latent latent_arr;
-                mixbox_rgb_to_latent(ur, ug, ub, latent_arr);
-
-                ser::latent_space_color target_color;
-                std::copy(std::begin(latent_arr), std::end(latent_arr), target_color.begin());
-
-                // 3. Solve QP for this node
-                ser::coefficients coeffs = solve_for_color_coefficients(palette_, target_color);
-
-                // 4. Store in LUT
-                impl_[r][g][b] = coeffs;
-            }
-        }
-    }
-}
-
-ser::coefficients ser::color_lut::solve_for_color_coefficients(
-    const std::vector<latent_space_color>& palette,
-    const ser::latent_space_color& target) {
-
-    // Problem: Constrained Least Squares (Quadratic Programming)
-    // Objective: Minimize || sum(k_i * V_i) - T ||^2 + lambda * sum(k_i^2)
-    // Constraints: sum(k_i) = 1.0, 0 <= k_i <= 1.0
-
-    int n_colors_int = static_cast<int>(palette.size());
-    if (n_colors_int == 0) return {};
-
-    // --- Step A: Construct Vector c (Linear Term) ---
-    // Expansion of Least Squares ||Vk - T||^2 gives 0.5 * k'(2V'V)k + (-2V'T)'k
-    // Linear term c = -2 * V'T
-    std::vector<double> c_vec(n_colors_int, 0.0);
-
-    for (int i = 0; i < n_colors_int; ++i) {
-        double dot_vt = 0.0;
-        for (int d = 0; d < LATENT_DIM; ++d) {
-            dot_vt += palette[i][d] * target[d];
-        }
-        c_vec[i] = -2.0 * dot_vt;
-    }
-
-    // --- Step B: Setup ClpSimplex Solver ---
-    ClpSimplex model;
-    model.setLogLevel(0); // Silent
-
-    // 1. Add Columns (Variables k_i) with Non-negativity constraints 0..1
-    for (int i = 0; i < n_colors_int; ++i) {
-        model.addColumn(0, nullptr, nullptr, 0.0, 1.0, c_vec[i]);
-    }
-
-    // 2. Add Convexity Constraint: Sum(k_i) = 1.0
-    std::vector<int> col_indices_row(n_colors_int);
-    std::vector<double> row_elements(n_colors_int, 1.0);
-    std::iota(col_indices_row.begin(), col_indices_row.end(), 0);
-
-    model.addRow(n_colors_int, col_indices_row.data(), row_elements.data(), 1.0, 1.0);
-
-    // --- Step C: Construct Sparse Matrix Q (Quadratic Term) ---
-    // Q = 2 * (V'V + lambda*I)
-    // IMPORTANT: Clp's Barrier solver requires a LOWER TRIANGULAR matrix.
-    // We must ensure the Row Index (i) >= Column Index (j).
-
+    // 2. Pre-calculate the Hessian (Q Matrix)
+    // Since the palette is fixed for this entire "bake", Q is constant.
+    // Q = 2 * (V'V + lambda*I). Clp requires Lower Triangular.
     std::vector<CoinBigIndex> col_starts;
     std::vector<int> row_indices;
     std::vector<double> elements;
     std::vector<int> col_lengths;
 
-    col_starts.reserve(n_colors_int + 1);
-    col_lengths.reserve(n_colors_int);
-    row_indices.reserve((n_colors_int * (n_colors_int + 1)) / 2);
-    elements.reserve((n_colors_int * (n_colors_int + 1)) / 2);
-
     CoinBigIndex current_idx = 0;
-
-    for (int j = 0; j < n_colors_int; ++j) { // Columns
+    for (int j = 0; j < n_colors; ++j) {
         col_starts.push_back(current_idx);
         int len = 0;
-
-        // Iterate only through the Lower Triangle (i >= j)
-        for (int i = j; i < n_colors_int; ++i) {
+        for (int i = j; i < n_colors; ++i) {
             double dot = 0.0;
             for (int d = 0; d < LATENT_DIM; ++d) {
-                dot += palette[i][d] * palette[j][d];
+                dot += palette_[i][d] * palette_[j][d];
             }
+            if (i == j) dot += LAMBDA;
 
-            // Add L2 regularization to the diagonal (where i == j)
-            if (i == j) {
-                dot += LAMBDA;
-            }
-
-            // Scale by 2.0 for standard QP form (0.5 * k'Qk)
             double val = 2.0 * dot;
-
             if (std::abs(val) > 1e-12) {
                 row_indices.push_back(i);
                 elements.push_back(val);
@@ -174,35 +95,69 @@ ser::coefficients ser::color_lut::solve_for_color_coefficients(
     }
     col_starts.push_back(current_idx);
 
-    CoinPackedMatrix coin_Q(true,
-        n_colors_int,
-        n_colors_int,
-        current_idx,
-        elements.data(),
-        row_indices.data(),
-        col_starts.data(),
-        col_lengths.data());
+    CoinPackedMatrix shared_Q(true, n_colors, n_colors, current_idx,
+        elements.data(), row_indices.data(),
+        col_starts.data(), col_lengths.data());
 
-    model.loadQuadraticObjective(coin_Q);
+    // 3. Parallel Solve Loop
+#pragma omp parallel for collapse(3)
+    for (int r = 0; r < LUT_GRID_SIZE; ++r) {
+        for (int g = 0; g < LUT_GRID_SIZE; ++g) {
+            for (int b = 0; b < LUT_GRID_SIZE; ++b) {
 
-    // --- Step D: Solve ---
-    // The Barrier method is required for Quadratic Programming.
+                uint8_t ur = static_cast<uint8_t>((r * 255) / (LUT_GRID_SIZE - 1));
+                uint8_t ug = static_cast<uint8_t>((g * 255) / (LUT_GRID_SIZE - 1));
+                uint8_t ub = static_cast<uint8_t>((b * 255) / (LUT_GRID_SIZE - 1));
+
+                mixbox_latent latent_arr;
+                mixbox_rgb_to_latent(ur, ug, ub, latent_arr);
+                ser::latent_space_color target;
+                std::copy(std::begin(latent_arr), std::end(latent_arr), target.begin());
+
+                // Solve using the pre-calculated matrix
+                impl_[r][g][b] = solve_with_precomputed_q(palette_, target, shared_Q);
+            }
+        }
+    }
+}
+
+ser::coefficients ser::color_lut::solve_with_precomputed_q(
+        const std::vector<latent_space_color>& palette,
+        const ser::latent_space_color& target,
+        const CoinPackedMatrix& Q) {
+
+    int n_colors = static_cast<int>(palette.size());
+
+    // Setup local solver (thread-safe)
+    ClpSimplex model;
+    model.setLogLevel(0);
+
+    // Linear term: c = -2 * V'T
+    for (int i = 0; i < n_colors; ++i) {
+        double dot_vt = 0.0;
+        for (int d = 0; d < LATENT_DIM; ++d) {
+            dot_vt += palette[i][d] * target[d];
+        }
+        model.addColumn(0, nullptr, nullptr, 0.0, 1.0, -2.0 * dot_vt);
+    }
+
+    // Constraints: Sum(k_i) = 1.0
+    std::vector<int> indices(n_colors);
+    std::vector<double> ones(n_colors, 1.0);
+    std::iota(indices.begin(), indices.end(), 0);
+    model.addRow(n_colors, indices.data(), ones.data(), 1.0, 1.0);
+
+    // Load precomputed Q
+    model.loadQuadraticObjective(Q);
     model.barrier(false);
 
-    // --- Step E: Extract Results ---
     double* solution = model.primalColumnSolution();
-
-    ser::coefficients result(n_colors_int);
+    ser::coefficients result(n_colors);
     if (solution) {
-        for (int i = 0; i < n_colors_int; ++i) {
+        for (int i = 0; i < n_colors; ++i) {
             result[i] = clamp(solution[i], 0.0, 1.0);
         }
     }
-    else {
-        // Return zeros if solver fails to provide a solution
-        result.assign(n_colors_int, 0.0);
-    }
-
     return result;
 }
 
