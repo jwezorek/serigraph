@@ -11,9 +11,6 @@ class QFrame;
 
 namespace ser {
 
-    // Defined based on your requirements
-    using rgb_color = std::array<uint8_t, 3>;
-
     class palette_widget : public QWidget {
         Q_OBJECT
 

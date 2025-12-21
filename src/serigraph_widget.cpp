@@ -5,46 +5,66 @@
 #include <QScrollArea>
 #include <QDebug>
 
-class ImagePane : public QWidget {
-    Q_OBJECT
-public:
-    explicit ImagePane(QWidget* parent = nullptr) : QWidget(parent) {
-        setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
-    }
+namespace {
 
-    void set_image(const QImage& img) {
-        m_image = img;
-    }
+    class image_pane : public QWidget {
 
-    const QImage& image() const { return m_image; }
+        Q_OBJECT
 
-signals:
-    void pixel_clicked(QColor color);
-
-protected:
-    void paintEvent(QPaintEvent* event) override {
-        QPainter painter(this);
-
-        if (m_image.isNull()) {
-            painter.fillRect(rect(), QColor(50, 50, 50)); 
-            painter.setPen(Qt::lightGray);
-            painter.drawText(rect(), Qt::AlignCenter, "[ No Image Loaded ]");
-        } else {
-            painter.drawImage(0, 0, m_image);
+    public:
+        explicit image_pane(QWidget* parent = nullptr) : QWidget(parent) {
+            setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
         }
-    }
 
-    void mousePressEvent(QMouseEvent* event) override {
-        if (m_image.isNull()) return;
-        QPoint pos = event->pos();
-        if (m_image.valid(pos)) {
-            emit pixel_clicked(m_image.pixelColor(pos));
+        void set_image(const QImage& img) {
+            image_ = img;
         }
-    }
 
-private:
-    QImage m_image;
-};
+        const QImage& image() const { return image_; }
+
+    signals:
+        void pixel_clicked(QColor color);
+
+    protected:
+        void paintEvent(QPaintEvent* event) override {
+            QPainter painter(this);
+
+            if (image_.isNull()) {
+                painter.fillRect(rect(), QColor(50, 50, 50));
+                painter.setPen(Qt::lightGray);
+                painter.drawText(rect(), Qt::AlignCenter, "[ No Image Loaded ]");
+            }
+            else {
+                painter.drawImage(0, 0, image_);
+            }
+        }
+
+        void mousePressEvent(QMouseEvent* event) override {
+            if (image_.isNull()) return;
+            QPoint pos = event->pos();
+            if (image_.valid(pos)) {
+                emit pixel_clicked(image_.pixelColor(pos));
+            }
+        }
+
+    private:
+        QImage image_;
+    };
+
+    image_pane* create_tab(QTabWidget* parent, const QString& title, QScrollArea*& out_scroll_area) {
+
+        out_scroll_area = new QScrollArea(parent);
+        out_scroll_area->setBackgroundRole(QPalette::Dark);
+        out_scroll_area->setAlignment(Qt::AlignCenter);
+        image_pane* pane = new image_pane(out_scroll_area);
+        out_scroll_area->setWidget(pane);
+        out_scroll_area->setWidgetResizable(true);
+        parent->addTab(out_scroll_area, title);
+
+        return pane;
+    }
+}
+
 
 #include "serigraph_widget.moc"
 
@@ -54,28 +74,17 @@ ser::serigraph_widget::serigraph_widget(QWidget* parent)
 {
     setTabPosition(QTabWidget::South);
 
-    source_pane_ = create_tab("Source", source_scroll_);
-    separated_pane_ = create_tab("Separated", separated_scroll_);
-    reinked_pane_ = create_tab("Re-inked", reinked_scroll_);
+    auto source_pane = create_tab(this, "Source", source_scroll_);
+    source_pane_ = source_pane;
+    separated_pane_ = create_tab(this, "Separated", separated_scroll_);
+    reinked_pane_ = create_tab(this, "Re-inked", reinked_scroll_);
 
-    connect(source_pane_, &ImagePane::pixel_clicked,
+    connect(source_pane, &image_pane::pixel_clicked,
         this, &serigraph_widget::source_pixel_clicked);
 }
 
-ImagePane* ser::serigraph_widget::create_tab(const QString& title, QScrollArea*& out_scroll_area) {
-
-    out_scroll_area = new QScrollArea(this);
-    out_scroll_area->setBackgroundRole(QPalette::Dark);
-    out_scroll_area->setAlignment(Qt::AlignCenter);
-    ImagePane* pane = new ImagePane(out_scroll_area);
-    out_scroll_area->setWidget(pane);
-    out_scroll_area->setWidgetResizable(true);
-    addTab(out_scroll_area, title);
-
-    return pane;
-}
-
-void ser::serigraph_widget::update_scroll_behavior(ImagePane* pane, QScrollArea* scroll, const QImage& img) {
+void ser::serigraph_widget::update_scroll_behavior(QWidget* widget, QScrollArea* scroll, const QImage& img) {
+    image_pane* pane = static_cast<image_pane*>(widget);
     pane->set_image(img);
 
     if (img.isNull()) {
@@ -101,5 +110,5 @@ void ser::serigraph_widget::set_reinked_image(const QImage& image) {
 }
 
 QImage ser::serigraph_widget::src_image() const {
-    return source_pane_->image();
+    return static_cast<image_pane*>(source_pane_)->image();
 }
