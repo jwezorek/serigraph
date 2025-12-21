@@ -110,8 +110,11 @@ void ser::palette_widget::insert_swatch(int index, const QColor& color) {
     int layout_idx = std::min(index, layout->count() - 1);
     layout->insertWidget(layout_idx, s);
 
-    if (index >= (int)swatches_.size()) swatches_.push_back(s);
-    else swatches_.insert(swatches_.begin() + index, s);
+    if (index >= (int)swatches_.size()) {
+        swatches_.push_back(s);
+    } else {
+        swatches_.insert(swatches_.begin() + index, s);
+    }
 }
 
 void ser::palette_widget::remove_swatch_at(int index) {
@@ -144,7 +147,9 @@ std::vector<QColor> ser::palette_widget::get_colors() const {
 }
 
 void ser::palette_widget::clear_layout() {
-    for (QWidget* w : swatches_) w->deleteLater();
+    for (QWidget* w : swatches_) {
+        w->deleteLater();
+    }
     swatches_.clear();
 }
 
